@@ -248,7 +248,7 @@ fn build() -> io::Result<()> {
     // make it static
     configure.arg("--enable-static");
     configure.arg("--disable-shared");
-    configure.arg("--enable-pthreads");
+    //configure.arg("--enable-pthreads");
 
     configure.arg("--enable-pic");
 
