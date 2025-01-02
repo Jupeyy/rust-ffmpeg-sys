@@ -365,10 +365,13 @@ fn build() -> io::Result<()> {
 
     let inner_args = format!(
         "{} {}",
-        configure.get_program().to_string_lossy(),
+        configure
+            .get_program()
+            .to_string_lossy()
+            .replace("\\", "\\\\"),
         configure
             .get_args()
-            .map(|arg| arg.to_string_lossy())
+            .map(|arg| arg.to_string_lossy().replace("\\", "\\\\"))
             .collect::<Vec<_>>()
             .join(" ")
     );
