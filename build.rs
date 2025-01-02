@@ -202,7 +202,7 @@ fn build() -> io::Result<()> {
     // Command's path is not relative to command's current_dir
     let configure_path = source_dir.join("configure");
     assert!(configure_path.exists());
-    let mut configure = Command::new(&configure_path);
+    let mut configure = Command::new(format!("sh {}", configure_path.to_string_lossy()));
     configure.current_dir(&source_dir);
 
     configure.arg(format!("--prefix={}", search().to_string_lossy()));
@@ -235,6 +235,8 @@ fn build() -> io::Result<()> {
             env::var("CARGO_CFG_TARGET_ARCH").unwrap()
         ));
         configure.arg(format!("--target_os={}", get_ffmpet_target_os()));
+        //configure.arg(format!("--target-os={}", get_ffmpet_target_os()));
+        //configure.arg("--pkg-config-flags=--static");
     }
 
     // control debug build
