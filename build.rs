@@ -362,9 +362,6 @@ fn build() -> io::Result<()> {
     // configure misc build options
     enable!(configure, "BUILD_PIC", "pic");
 
-    let mut configure = Command::new("sh");
-    configure.arg("--version");
-
     // run ./configure
     let output = configure
         .output()
