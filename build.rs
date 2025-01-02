@@ -202,7 +202,8 @@ fn build() -> io::Result<()> {
     // Command's path is not relative to command's current_dir
     let configure_path = source_dir.join("configure");
     assert!(configure_path.exists());
-    let mut configure = Command::new(format!("sh {}", configure_path.to_string_lossy()));
+    //let mut configure = Command::new(format!("sh {}", configure_path.to_string_lossy()));
+    let mut configure = Command::new(configure_path);
     configure.current_dir(&source_dir);
 
     configure.arg(format!("--prefix={}", search().to_string_lossy()));
