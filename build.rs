@@ -365,7 +365,7 @@ fn build() -> io::Result<()> {
     // run ./configure
     let output = configure
         .output()
-        .unwrap_or_else(|_| panic!("{:?} failed", configure));
+        .unwrap_or_else(|err| panic!("{:?} failed: {err}", configure));
     if !output.status.success() {
         println!("configure: {}", String::from_utf8_lossy(&output.stdout));
 
