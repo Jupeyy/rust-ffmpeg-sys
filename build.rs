@@ -363,6 +363,20 @@ fn build() -> io::Result<()> {
     // configure misc build options
     enable!(configure, "BUILD_PIC", "pic");
 
+    let mut configure = Command::new("sh");
+    configure.args([
+        "-c",
+        &format!(
+            "{} {}",
+            configure.get_program().to_string_lossy(),
+            configure
+                .get_args()
+                .map(|arg| arg.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join(" ")
+        ),
+    ]);
+
     // run ./configure
     let output = configure
         .output()
