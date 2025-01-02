@@ -191,6 +191,7 @@ fn get_ffmpet_target_os() -> String {
     let cargo_target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     match cargo_target_os.as_str() {
         "ios" => "darwin".to_string(),
+        "windows" => "mingw32".to_string(),
         _ => cargo_target_os,
     }
 }
@@ -201,7 +202,8 @@ fn build() -> io::Result<()> {
     // Command's path is not relative to command's current_dir
     let configure_path = source_dir.join("configure");
     assert!(configure_path.exists());
-    let mut configure = Command::new(&configure_path);
+    //let mut configure = Command::new(format!("sh {}", configure_path.to_string_lossy()));
+    let mut configure = Command::new(configure_path);
     configure.current_dir(&source_dir);
 
     configure.arg(format!("--prefix={}", search().to_string_lossy()));
@@ -234,6 +236,8 @@ fn build() -> io::Result<()> {
             env::var("CARGO_CFG_TARGET_ARCH").unwrap()
         ));
         configure.arg(format!("--target_os={}", get_ffmpet_target_os()));
+        //configure.arg(format!("--target-os={}", get_ffmpet_target_os()));
+        //configure.arg("--pkg-config-flags=--static");
     }
 
     // control debug build
@@ -248,7 +252,7 @@ fn build() -> io::Result<()> {
     // make it static
     configure.arg("--enable-static");
     configure.arg("--disable-shared");
-    configure.arg("--enable-pthreads");
+    //configure.arg("--enable-pthreads");
 
     configure.arg("--enable-pic");
 
@@ -257,6 +261,15 @@ fn build() -> io::Result<()> {
 
     // do not build programs since we don't need them
     configure.arg("--disable-programs");
+
+    #[cfg(target_os = "windows")]
+    {
+        configure.arg("--pkg-config-flags=\"--static\"");
+        configure.arg("--extra-cflags=\"-I/mingw64/include -static\"");
+        configure.arg("--extra-ldflags=\"-L/mingw64/lib -static -Wl,--whole-archive -lx264 -Wl,--no-whole-archive\"");
+        configure.arg("--extra-ldexeflags=\"-Bstatic\"");
+        configure.arg("--disable-w32threads");
+    }
 
     macro_rules! enable {
         ($conf:expr, $feat:expr, $name:expr) => {
@@ -359,10 +372,29 @@ fn build() -> io::Result<()> {
     // configure misc build options
     enable!(configure, "BUILD_PIC", "pic");
 
+    let inner_args = format!(
+        "{} {}",
+        configure
+            .get_program()
+            .to_string_lossy()
+            .replace("\\", "\\\\")
+            .replace("\\", "\\\\"),
+        configure
+            .get_args()
+            .map(|arg| arg
+                .to_string_lossy()
+                .replace("\\", "\\\\")
+                .replace("\\", "\\\\"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+    let mut configure = Command::new("sh");
+    configure.args(["-c", &inner_args]).current_dir(source_dir);
+
     // run ./configure
     let output = configure
         .output()
-        .unwrap_or_else(|_| panic!("{:?} failed", configure));
+        .unwrap_or_else(|err| panic!("{:?} failed: {err}", configure));
     if !output.status.success() {
         println!("configure: {}", String::from_utf8_lossy(&output.stdout));
 
@@ -376,14 +408,21 @@ fn build() -> io::Result<()> {
     }
 
     // run make
-    if !Command::new("make")
+    let make_status = Command::new("make")
         .arg("-j")
         .arg(num_cpus::get().to_string())
         .current_dir(source())
-        .status()?
-        .success()
-    {
-        return Err(io::Error::new(io::ErrorKind::Other, "make failed"));
+        .status()?;
+    if !make_status.success() {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!(
+                "make failed {} {} {}",
+                make_status,
+                source().to_string_lossy(),
+                inner_args
+            ),
+        ));
     }
 
     // run make install
