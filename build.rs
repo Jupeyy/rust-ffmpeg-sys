@@ -394,14 +394,16 @@ fn build() -> io::Result<()> {
     }
 
     // run make
-    if !Command::new("make")
+    let make_status = Command::new("make")
         .arg("-j")
         .arg(num_cpus::get().to_string())
         .current_dir(source())
-        .status()?
-        .success()
-    {
-        return Err(io::Error::new(io::ErrorKind::Other, "make failed"));
+        .status()?;
+    if !make_status.success() {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!("make failed {}", make_status),
+        ));
     }
 
     // run make install
