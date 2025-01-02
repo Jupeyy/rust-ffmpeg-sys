@@ -402,7 +402,7 @@ fn build() -> io::Result<()> {
     if !make_status.success() {
         return Err(io::Error::new(
             io::ErrorKind::Other,
-            format!("make failed {} {}", make_status, source()),
+            format!("make failed {} {}", make_status, source().to_string_lossy()),
         ));
     }
 
