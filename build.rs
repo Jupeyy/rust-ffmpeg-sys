@@ -202,17 +202,7 @@ fn build() -> io::Result<()> {
     // Command's path is not relative to command's current_dir
     let configure_path = source_dir.join("configure");
     assert!(configure_path.exists());
-    let mut configure = Command::new(
-        std::env::var("MSYS2_LOCATION")
-            .map(|s| {
-                format!(
-                    "{s}/msys2_shell -c \"sh {}\"",
-                    configure_path.to_string_lossy()
-                )
-                .into()
-            })
-            .unwrap_or_else(|_| configure_path),
-    );
+    let mut configure = Command::new(format!("sh {}", configure_path.to_string_lossy()));
     configure.current_dir(&source_dir);
 
     configure.arg(format!("--prefix={}", search().to_string_lossy()));
@@ -371,6 +361,8 @@ fn build() -> io::Result<()> {
 
     // configure misc build options
     enable!(configure, "BUILD_PIC", "pic");
+
+    let mut configure = Command::new("sh --version");
 
     // run ./configure
     let output = configure
