@@ -364,7 +364,7 @@ fn build() -> io::Result<()> {
     enable!(configure, "BUILD_PIC", "pic");
 
     let inner_args = format!(
-        "'{} {}'",
+        "{} {}",
         configure.get_program().to_string_lossy(),
         configure
             .get_args()
