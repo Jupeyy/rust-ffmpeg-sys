@@ -363,19 +363,17 @@ fn build() -> io::Result<()> {
     // configure misc build options
     enable!(configure, "BUILD_PIC", "pic");
 
+    let inner_args = format!(
+        "'{} {}'",
+        configure.get_program().to_string_lossy(),
+        configure
+            .get_args()
+            .map(|arg| arg.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
     let mut configure = Command::new("sh");
-    configure.args([
-        "-c",
-        &format!(
-            "{} {}",
-            configure.get_program().to_string_lossy(),
-            configure
-                .get_args()
-                .map(|arg| arg.to_string_lossy())
-                .collect::<Vec<_>>()
-                .join(" ")
-        ),
-    ]);
+    configure.args(["-c", &inner_args]);
 
     // run ./configure
     let output = configure
@@ -402,7 +400,12 @@ fn build() -> io::Result<()> {
     if !make_status.success() {
         return Err(io::Error::new(
             io::ErrorKind::Other,
-            format!("make failed {} {}", make_status, source().to_string_lossy()),
+            format!(
+                "make failed {} {} {}",
+                make_status,
+                source().to_string_lossy(),
+                inner_args
+            ),
         ));
     }
 
