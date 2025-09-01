@@ -196,6 +196,7 @@ fn get_ffmpeg_target_os() -> String {
     let cargo_target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     match cargo_target_os.as_str() {
         "ios" => "darwin".to_string(),
+        "windows" => "mingw32".to_string(),
         _ => cargo_target_os,
     }
 }
@@ -276,7 +277,9 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
             return Err(io::Error::other(
                 "Failed to find 'sh.exe', which is required for building FFmpeg",
             ));
-        }
+        } else {
+            Command::new(&configure_path)
+        };
 
         let mut configure = Command::new("sh");
         configure.arg(configure_path);
@@ -329,7 +332,7 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
         }
     } else {
         // tune the compiler for the host arhitecture
-        configure.arg("--extra-cflags=-march=native -mtune=native");
+        // configure.arg("--extra-cflags=-march=native -mtune=native");
     }
 
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
@@ -421,11 +424,7 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
     // make it static
     configure.arg("--enable-static");
     configure.arg("--disable-shared");
-    // windows includes threading in the standard library
-    #[cfg(not(target_env = "msvc"))]
-    {
-        configure.arg("--enable-pthreads");
-    }
+    //configure.arg("--enable-pthreads");
 
     // position independent code
     configure.arg("--enable-pic");
@@ -438,6 +437,14 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
 
     // do not generate documentation
     configure.arg("--disable-doc");
+    #[cfg(target_os = "windows")]
+    {
+        configure.arg("--pkg-config-flags=\"--static\"");
+        configure.arg("--extra-cflags=\"-I/mingw64/include -static\"");
+        configure.arg("--extra-ldflags=\"-L/mingw64/lib -static -Wl,--whole-archive -lx264 -Wl,--no-whole-archive\"");
+        configure.arg("--extra-ldexeflags=\"-Bstatic\"");
+        configure.arg("--disable-w32threads");
+    }
 
     macro_rules! enable {
         ($conf:expr, $feat:expr, $name:expr) => {
@@ -647,11 +654,29 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
     // skip all the warnings from output as they can significantly slow down the build
     // time on platforms like mac which spawns thousands of nullabilty complieance warnings
     configure.arg("--extra-cflags=-w");
+    let inner_args = format!(
+        "{} {}",
+        configure
+            .get_program()
+            .to_string_lossy()
+            .replace("\\", "\\\\")
+            .replace("\\", "\\\\"),
+        configure
+            .get_args()
+            .map(|arg| arg
+                .to_string_lossy()
+                .replace("\\", "\\\\")
+                .replace("\\", "\\\\"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+    let mut configure = Command::new("sh");
+    configure.args(["-c", &inner_args]).current_dir(source_dir);
 
     // run ./configure
     let output = configure
         .output()
-        .unwrap_or_else(|_| panic!("{:?} failed", configure));
+        .unwrap_or_else(|err| panic!("{:?} failed: {err}", configure));
     if !output.status.success() {
         println!(
             "configure stdout: {}",
@@ -669,14 +694,18 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
     }
 
     // run make
-    if !Command::new("make")
+    let make_status = Command::new("make")
         .arg("-j")
         .arg(num_cpus::get().to_string())
         .current_dir(source())
-        .status()?
-        .success()
-    {
-        return Err(io::Error::other("make failed"));
+        .status()?;
+    if !make_status.success() {
+        return Err(io::Error::other(format!(
+            "make failed {} {} {}",
+            make_status,
+            source().to_string_lossy(),
+            inner_args
+        )));
     }
 
     // run make install
