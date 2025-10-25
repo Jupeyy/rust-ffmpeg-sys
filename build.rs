@@ -445,6 +445,13 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
         configure.arg("--extra-ldexeflags=\"-Bstatic\"");
         configure.arg("--disable-w32threads");
     }
+    #[cfg(target_os = "linux")]
+    {
+        configure.arg("--pkg-config-flags=\"--static\"");
+        configure.arg("--extra-cflags=\"-I/usr/local/include -static\"");
+        configure.arg("--extra-ldflags=\"-L/usr/local/lib -static -Wl,--whole-archive -lx264 -Wl,--no-whole-archive\"");
+        configure.arg("--extra-ldexeflags=\"-Bstatic\"");
+    }
 
     macro_rules! enable {
         ($conf:expr, $feat:expr, $name:expr) => {
